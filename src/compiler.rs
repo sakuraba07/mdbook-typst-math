@@ -77,20 +77,26 @@ pub struct Compiler {
     files: RwLock<HashMap<FileId, CachedFile>>,
 }
 
+impl Default for Compiler {
+    fn default() -> Self {
+        Self {
+            library: LazyHash::new(Library::default()),
+            book: LazyHash::new(FontBook::default()),
+            fonts: Vec::new(),
+            cache: PathBuf::new(),
+            files: RwLock::new(HashMap::new()),
+        }
+    }
+}
+
 impl Compiler {
     /// Creates a new compiler with default settings.
     ///
     /// The compiler starts with an empty font book and no loaded fonts.
     /// You should add fonts before rendering.
+    #[must_use]
     pub fn new() -> Self {
-        Self {
-            library: LazyHash::new(Library::default()),
-            book: LazyHash::new(FontBook::default()),
-            fonts: Vec::new(),
-
-            cache: PathBuf::new(),
-            files: RwLock::new(HashMap::new()),
-        }
+        Self::default()
     }
 
     /// Wraps a source string into a [`WrapSource`] that implements [`World`].

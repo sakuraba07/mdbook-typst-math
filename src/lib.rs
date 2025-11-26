@@ -56,7 +56,8 @@ pub struct TypstProcessorOptions {
 }
 
 /// Configuration for the typst-math preprocessor from book.toml
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
 struct TypstMathConfig {
     preamble: Option<String>,
     inline_preamble: Option<String>,
@@ -88,38 +89,28 @@ impl Preprocessor for TypstProcessor {
     }
 
     fn run(&self, ctx: &PreprocessorContext, mut book: Book) -> Result<Book> {
-        let config: Option<TypstMathConfig> = ctx
+        let config: TypstMathConfig = ctx
             .config
             .get(&format!("preprocessor.{}", self.name()))
             .ok()
-            .flatten();
+            .flatten()
+            .unwrap_or_default();
         let mut compiler = Compiler::new();
 
-        // Set options
-        let mut opts = TypstProcessorOptions {
-            preamble: String::from("#set page(width: auto, height: auto, margin: 0.5em)"),
-            inline_preamble: None,
-            display_preamble: None,
+        // Set options from config
+        let opts = TypstProcessorOptions {
+            preamble: config
+                .preamble
+                .unwrap_or_else(|| String::from("#set page(width: auto, height: auto, margin: 0.5em)")),
+            inline_preamble: config.inline_preamble,
+            display_preamble: config.display_preamble,
         };
-        if let Some(ref cfg) = config {
-            if let Some(ref preamble) = cfg.preamble {
-                opts.preamble = preamble.clone();
-            }
-            if let Some(ref inline_preamble) = cfg.inline_preamble {
-                opts.inline_preamble = Some(inline_preamble.clone());
-            }
-            if let Some(ref display_preamble) = cfg.display_preamble {
-                opts.display_preamble = Some(display_preamble.clone());
-            }
-        }
 
         let mut db = fontdb::Database::new();
         // Load fonts from the config
-        if let Some(ref cfg) = config {
-            if let Some(ref fonts) = cfg.fonts {
-                for font_path in fonts {
-                    db.load_fonts_dir(font_path);
-                }
+        if let Some(ref fonts) = config.fonts {
+            for font_path in fonts {
+                db.load_fonts_dir(font_path);
             }
         }
         // Load system fonts, lower priority
@@ -170,10 +161,8 @@ impl Preprocessor for TypstProcessor {
         }
 
         // Set the cache dir
-        if let Some(ref cfg) = config {
-            if let Some(ref cache) = cfg.cache {
-                compiler.cache = PathBuf::from(cache);
-            }
+        if let Some(ref cache) = config.cache {
+            compiler.cache = PathBuf::from(cache);
         }
 
         // record if any errors occurred
