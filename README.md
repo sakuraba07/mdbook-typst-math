@@ -99,7 +99,7 @@ world
 Currently, only following configurations are supported. Here we use an example to show how to set them:
 
 ````toml
-[preprocessor.typst]
+[preprocessor.typst-math]
 
 # Additional fonts to load
 #
@@ -144,6 +144,11 @@ display_preamble = """
 #set text(size: 14pt)
 #show math.equation: set text(font: "Fira Math")
 """
+
+# Cache directory for downloaded typst packages
+#
+# If not set, packages will be downloaded to a temporary directory.
+cache = ".typst-cache"
 ````
 
 ## TODO
