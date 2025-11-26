@@ -1,3 +1,26 @@
+//! mdbook-typst-math - An mdbook preprocessor to render math using Typst
+//!
+//! This crate provides a preprocessor for mdbook that converts LaTeX-style
+//! math blocks into SVG images rendered by Typst.
+//!
+//! # Usage
+//!
+//! Add the preprocessor to your `book.toml`:
+//!
+//! ```toml
+//! [preprocessor.typst-math]
+//! ```
+//!
+//! # Configuration
+//!
+//! The preprocessor supports the following configuration options:
+//!
+//! - `preamble`: Typst code to prepend to all math blocks
+//! - `inline_preamble`: Typst code to prepend to inline math blocks
+//! - `display_preamble`: Typst code to prepend to display math blocks
+//! - `fonts`: List of font directories to load
+//! - `cache`: Directory for caching downloaded packages
+
 use std::path::PathBuf;
 
 use anyhow::anyhow;
@@ -12,15 +35,23 @@ use compiler::{CompileError, Compiler};
 use typst::foundations::Bytes;
 use typst::text::{Font, FontInfo};
 
-/// Options that are passed to the compile step
+/// Options that control how Typst renders math blocks.
+///
+/// These options allow customization of the Typst preamble used for
+/// inline and display math rendering.
 pub struct TypstProcessorOptions {
-    /// preamble to be added before each content
+    /// Default preamble added before each math block.
     ///
-    /// This is used as fallback if the following options are not set
+    /// This is used as a fallback if `inline_preamble` or `display_preamble`
+    /// is not set. The default value sets up an auto-sized page with minimal margins.
     pub preamble: String,
-    /// preamble to be added before each inline math
+    /// Optional preamble specifically for inline math (`$...$`).
+    ///
+    /// If `None`, the default `preamble` is used instead.
     pub inline_preamble: Option<String>,
-    /// preamble to be added before each display math
+    /// Optional preamble specifically for display math (`$$...$$`).
+    ///
+    /// If `None`, the default `preamble` is used instead.
     pub display_preamble: Option<String>,
 }
 
@@ -34,6 +65,21 @@ struct TypstMathConfig {
     cache: Option<String>,
 }
 
+/// The main preprocessor that converts math blocks to Typst-rendered SVGs.
+///
+/// This preprocessor scans markdown content for inline math (`$...$`) and
+/// display math (`$$...$$`) blocks, renders them using Typst, and replaces
+/// them with SVG images wrapped in appropriate HTML elements.
+///
+/// # Example
+///
+/// ```ignore
+/// use mdbook_typst_math::TypstProcessor;
+/// use mdbook_preprocessor::Preprocessor;
+///
+/// let processor = TypstProcessor;
+/// assert_eq!(processor.name(), "typst-math");
+/// ```
 pub struct TypstProcessor;
 
 impl Preprocessor for TypstProcessor {

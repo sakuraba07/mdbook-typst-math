@@ -1,6 +1,9 @@
-//! Customized typst compiler for mdbook preprocessor
+//! Customized Typst compiler for mdbook preprocessor.
 //!
-//! Highly inspired by the [typst-bot](https://github.com/mattfbacon/typst-bot)
+//! This module provides a [`Compiler`] that wraps Typst's compilation functionality,
+//! handling font loading, package management, and source compilation.
+//!
+//! Highly inspired by the [typst-bot](https://github.com/mattfbacon/typst-bot).
 
 use std::{collections::HashMap, fmt, io::Write, path::PathBuf, sync::RwLock};
 
@@ -15,12 +18,17 @@ use typst::{
 };
 use typst_svg::svg;
 
-/// Errors that can occur during typst compilation
+/// Errors that can occur during Typst compilation.
 #[derive(Debug)]
 pub enum CompileError {
-    /// Typst compilation failed with diagnostics
+    /// Typst compilation failed with diagnostics.
+    ///
+    /// Contains a formatted string of the compilation errors.
     Compilation(String),
-    /// Lock was poisoned (should not happen in normal operation)
+    /// Internal lock was poisoned.
+    ///
+    /// This should not happen in normal operation and indicates a panic
+    /// occurred while holding a lock.
     #[allow(dead_code)]
     LockPoisoned,
 }
@@ -36,25 +44,44 @@ impl fmt::Display for CompileError {
 
 impl std::error::Error for CompileError {}
 
-/// Cached file with bytes and optional parsed source
+/// Cached file with bytes and optional parsed source.
 struct CachedFile {
     bytes: Bytes,
     source: Option<Source>,
 }
 
-/// Compiler
+/// The Typst compiler context.
 ///
-/// This is the compiler which has all the necessary fields except the source
+/// This struct holds all the state needed to compile Typst documents:
+/// - Standard library and font book
+/// - Loaded fonts
+/// - File cache for packages and sources
+///
+/// # Example
+///
+/// ```ignore
+/// let mut compiler = Compiler::new();
+/// // Configure fonts and cache as needed
+/// let svg = compiler.render("$ x^2 + y^2 = z^2 $")?;
+/// ```
 pub struct Compiler {
+    /// The Typst standard library.
     pub library: LazyHash<Library>,
+    /// Font metadata book for font selection.
     pub book: LazyHash<FontBook>,
+    /// Loaded font data.
     pub fonts: Vec<Font>,
-
+    /// Cache directory for downloaded packages.
     pub cache: PathBuf,
+    /// Internal file cache for sources and binary files.
     files: RwLock<HashMap<FileId, CachedFile>>,
 }
 
 impl Compiler {
+    /// Creates a new compiler with default settings.
+    ///
+    /// The compiler starts with an empty font book and no loaded fonts.
+    /// You should add fonts before rendering.
     pub fn new() -> Self {
         Self {
             library: LazyHash::new(Library::default()),
@@ -66,6 +93,10 @@ impl Compiler {
         }
     }
 
+    /// Wraps a source string into a [`WrapSource`] that implements [`World`].
+    ///
+    /// This creates a complete Typst world context for compilation,
+    /// capturing the current local time for date-related functions.
     pub fn wrap_source(&self, source: impl Into<String>) -> WrapSource<'_> {
         WrapSource {
             compiler: self,
@@ -74,7 +105,10 @@ impl Compiler {
         }
     }
 
-    /// Get the package directory or download if not exists
+    /// Gets the package directory, downloading it if it doesn't exist.
+    ///
+    /// Packages are downloaded from `packages.typst.org` and extracted
+    /// to the cache directory.
     fn package(&self, package: &PackageSpec) -> PackageResult<PathBuf> {
         let package_subdir = format!("{}/{}/{}", package.namespace, package.name, package.version);
         let path = self.cache.join(package_subdir);
@@ -143,6 +177,7 @@ impl Compiler {
         Ok(path)
     }
 
+    /// Gets the raw bytes of a file, loading and caching if necessary.
     fn get_file(&self, id: FileId) -> FileResult<Bytes> {
         // Check if file is already cached
         {
@@ -175,6 +210,7 @@ impl Compiler {
         Err(FileError::NotFound(id.vpath().as_rootless_path().into()))
     }
 
+    /// Gets a parsed source file, loading and caching if necessary.
     fn get_source(&self, id: FileId) -> FileResult<Source> {
         // Check if source is already cached
         {
@@ -204,6 +240,21 @@ impl Compiler {
         Ok(source)
     }
 
+    /// Renders Typst source code to SVG.
+    ///
+    /// Compiles the given Typst source and returns the rendered pages
+    /// as concatenated SVG strings.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CompileError::Compilation`] if the Typst code fails to compile.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let compiler = Compiler::new();
+    /// let svg = compiler.render("$ E = m c^2 $")?;
+    /// ```
     pub fn render(&self, source: impl Into<String>) -> Result<String, CompileError> {
         let source = source.into();
         let world = self.wrap_source(source);
@@ -225,12 +276,17 @@ impl Compiler {
     }
 }
 
-/// Wrap source
+/// A wrapper that provides a complete Typst [`World`] for compilation.
 ///
-/// This is a wrapper for the source which provides ref to the compiler
+/// This struct combines a [`Compiler`] reference with a specific source
+/// document and timestamp, implementing all the traits needed for Typst
+/// compilation.
 pub struct WrapSource<'a> {
+    /// Reference to the compiler providing fonts and file access.
     compiler: &'a Compiler,
+    /// The main source document to compile.
     source: Source,
+    /// The time to use for date-related Typst functions.
     time: time::OffsetDateTime,
 }
 
