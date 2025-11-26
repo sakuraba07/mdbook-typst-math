@@ -22,9 +22,9 @@ include = [
 [dependencies]
 anyhow = "1.0.100"
 clap = { version = "4.5.53", features = ["derive"] }
-comemo = "0.4.0"
+comemo = "0.5.0"
 flate2 = "1.1.5"
-fontdb = "0.17.0"
+fontdb = "0.23.0"
 mdbook = "0.4.40"
 pulldown-cmark = "0.13.0"
 reqwest = { version = "0.12.24", default-features = false, features = [
@@ -36,9 +36,9 @@ serde_json = "1.0.145"
 tar = "0.4.44"
 time = { version = "0.3.44", features = ["local-offset"] }
 toml = "0.8.23"
-typst = "0.11.1"
-typst-assets = { version = "0.11.1", features = ["fonts"], optional = true }
-typst-svg = "0.11.1"
+typst = "0.14.0"
+typst-assets = { version = "0.14.0", features = ["fonts"], optional = true }
+typst-svg = "0.14.0"
 
 [features]
 default = ["embed-fonts"]

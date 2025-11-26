@@ -86,14 +86,14 @@ impl Preprocessor for TypstProcessor {
                 .with_face_data(face.id, FontInfo::new)
                 .expect("Failed to load font info");
             if let Some(info) = info {
-                compiler.book.update(|book| book.push(info));
+                compiler.book.push(info);
                 if let Some(font) = match &face.source {
                     fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => {
                         let bytes = std::fs::read(path).expect("Failed to read font file");
-                        Font::new(Bytes::from(bytes), face.index)
+                        Font::new(Bytes::new(bytes), face.index)
                     }
                     fontdb::Source::Binary(data) => {
-                        Font::new(Bytes::from(data.as_ref().as_ref()), face.index)
+                        Font::new(Bytes::new(data.as_ref().as_ref().to_vec()), face.index)
                     }
                 } {
                     compiler.fonts.push(font);
@@ -105,9 +105,9 @@ impl Preprocessor for TypstProcessor {
         {
             // Load typst embedded fonts, lowest priority
             for data in typst_assets::fonts() {
-                let buffer = Bytes::from_static(data);
+                let buffer = Bytes::new(data);
                 for font in Font::iter(buffer) {
-                    compiler.book.update(|book| book.push(font.info().clone()));
+                    compiler.book.push(font.info().clone());
                     compiler.fonts.push(font);
                 }
             }
