@@ -25,19 +25,12 @@ pub enum CompileError {
     ///
     /// Contains a formatted string of the compilation errors.
     Compilation(String),
-    /// Internal lock was poisoned.
-    ///
-    /// This should not happen in normal operation and indicates a panic
-    /// occurred while holding a lock.
-    #[allow(dead_code)]
-    LockPoisoned,
 }
 
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CompileError::Compilation(msg) => write!(f, "Typst compilation error: {}", msg),
-            CompileError::LockPoisoned => write!(f, "Internal error: lock poisoned"),
         }
     }
 }
