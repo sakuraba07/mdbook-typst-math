@@ -231,11 +231,11 @@ impl TypstProcessor {
 
         let mut content = chapter.content.to_string();
 
-        for (span, block, inline) in typst_blocks.iter().rev() {
+        for (span, block, inline) in typst_blocks.into_iter().rev() {
             let pre_content = &content[0..span.start];
             let post_content = &content[span.end..];
 
-            let svg = compiler.render(block.clone()).map_err(|e: CompileError| {
+            let svg = compiler.render(block).map_err(|e: CompileError| {
                 anyhow!(
                     "Failed to render math in chapter '{}': {}",
                     chapter_name,
