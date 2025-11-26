@@ -2,7 +2,7 @@
 //!
 //! Highly inspired by the [typst-bot](https://github.com/mattfbacon/typst-bot)
 
-use std::{collections::HashMap, io::Write, path::PathBuf, sync::RwLock};
+use std::{collections::HashMap, fmt, io::Write, path::PathBuf, sync::RwLock};
 
 use typst::{
     diag::{eco_format, FileError, FileResult, PackageError, PackageResult},
@@ -14,6 +14,27 @@ use typst::{
     Library, LibraryExt, World,
 };
 use typst_svg::svg;
+
+/// Errors that can occur during typst compilation
+#[derive(Debug)]
+pub enum CompileError {
+    /// Typst compilation failed with diagnostics
+    Compilation(String),
+    /// Lock was poisoned (should not happen in normal operation)
+    #[allow(dead_code)]
+    LockPoisoned,
+}
+
+impl fmt::Display for CompileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CompileError::Compilation(msg) => write!(f, "Typst compilation error: {}", msg),
+            CompileError::LockPoisoned => write!(f, "Internal error: lock poisoned"),
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
 
 /// Cached file with bytes and optional parsed source
 struct CachedFile {
@@ -183,14 +204,19 @@ impl Compiler {
         Ok(source)
     }
 
-    pub fn render(&self, source: impl Into<String>) -> Result<String, String> {
+    pub fn render(&self, source: impl Into<String>) -> Result<String, CompileError> {
         let source = source.into();
         let world = self.wrap_source(source);
         let result = typst::compile::<PagedDocument>(&world);
 
-        // TODO: handle warnings from result.warnings
+        // Log warnings if any
+        for warning in &result.warnings {
+            eprintln!("Typst warning: {:?}", warning);
+        }
 
-        let document = result.output.map_err(|diags| format!("{:?}", diags))?;
+        let document = result
+            .output
+            .map_err(|diags| CompileError::Compilation(format!("{:?}", diags)))?;
 
         let images = document.pages.iter().map(svg).collect::<Vec<_>>();
         let images = images.join("\n");

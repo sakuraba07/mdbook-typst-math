@@ -8,7 +8,7 @@ use pulldown_cmark::{Event, Options, Parser};
 use serde::Deserialize;
 
 mod compiler;
-use compiler::Compiler;
+use compiler::{CompileError, Compiler};
 use typst::foundations::Bytes;
 use typst::text::{Font, FontInfo};
 
@@ -81,22 +81,33 @@ impl Preprocessor for TypstProcessor {
 
         // Add all fonts in db to the compiler
         for face in db.faces() {
-            let info = db
-                .with_face_data(face.id, FontInfo::new)
-                .expect("Failed to load font info");
-            if let Some(info) = info {
-                compiler.book.push(info);
-                if let Some(font) = match &face.source {
-                    fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => {
-                        let bytes = std::fs::read(path).expect("Failed to read font file");
-                        Font::new(Bytes::new(bytes), face.index)
+            let Some(info) = db.with_face_data(face.id, FontInfo::new).flatten() else {
+                eprintln!(
+                    "Warning: Failed to load font info for {:?}, skipping",
+                    face.source
+                );
+                continue;
+            };
+            compiler.book.push(info);
+            let font = match &face.source {
+                fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => {
+                    match std::fs::read(path) {
+                        Ok(bytes) => Font::new(Bytes::new(bytes), face.index),
+                        Err(e) => {
+                            eprintln!(
+                                "Warning: Failed to read font file {:?}: {}, skipping",
+                                path, e
+                            );
+                            continue;
+                        }
                     }
-                    fontdb::Source::Binary(data) => {
-                        Font::new(Bytes::new(data.as_ref().as_ref().to_vec()), face.index)
-                    }
-                } {
-                    compiler.fonts.push(font);
                 }
+                fontdb::Source::Binary(data) => {
+                    Font::new(Bytes::new(data.as_ref().as_ref().to_vec()), face.index)
+                }
+            };
+            if let Some(font) = font {
+                compiler.fonts.push(font);
             }
         }
 
@@ -145,10 +156,11 @@ impl Preprocessor for TypstProcessor {
 impl TypstProcessor {
     fn convert_typst(
         &self,
-        chapter: &mut Chapter,
+        chapter: &Chapter,
         compiler: &Compiler,
         opts: &TypstProcessorOptions,
     ) -> Result<String> {
+        let chapter_name = chapter.name.as_str();
         let mut typst_blocks = Vec::new();
 
         let mut pulldown_cmark_opts = Options::empty();
@@ -188,7 +200,13 @@ impl TypstProcessor {
             let pre_content = &content[0..span.start];
             let post_content = &content[span.end..];
 
-            let svg = compiler.render(block.clone()).map_err(|e| anyhow!(e))?;
+            let svg = compiler.render(block.clone()).map_err(|e: CompileError| {
+                anyhow!(
+                    "Failed to render math in chapter '{}': {}",
+                    chapter_name,
+                    e
+                )
+            })?;
 
             content = match inline {
                 true => format!(
