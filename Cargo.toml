@@ -2,6 +2,7 @@
 name = "mdbook-typst-math"
 version = "0.1.1"
 edition = "2021"
+rust-version = "1.80"
 authors = ["duskmoon (Campbell He) <kp.campbell.he@duskmoon314.com>"]
 description = "An mdbook preprocessor to use typst to render math."
 readme = "README.md"
