@@ -11,3 +11,8 @@
 .typst-display > .typst-doc {
   transform: scale(1.5);
 }
+
+/* Theme support */
+.typst-doc {
+  color: var(--fg);
+}
